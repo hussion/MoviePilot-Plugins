@@ -760,7 +760,7 @@ class IYUUAutoSeed(_PluginBase):
         site_domain = StringUtils.get_url_domain(site_url)
         # 站点信息
         site_info = self.sites.get_indexer(site_domain)
-        if not site_info:
+        if not site_info or not site_info.get('url'):
             logger.debug(f"没有维护种子对应的站点：{site_url}")
             return False
         if self._sites and site_info.get('id') not in self._sites:
@@ -971,7 +971,7 @@ class IYUUAutoSeed(_PluginBase):
                                       flags=re.IGNORECASE)
                 return f"{site.get('url')}{download_url}"
         except Exception as e:
-            logger.warn(f"站点 {site.get('name')} Url转换失败：{str(e)}，尝试通过详情页面获取种子下载链接 ...")
+            logger.warn(f"{site.get('name')} Url转换失败，{str(e)}：site_url={site.get('url')}，base_url={base_url}, seed={seed}")
             return self.__get_torrent_url_from_page(seed=seed, site=site)
 
     def __get_torrent_url_from_page(self, seed: dict, site: dict):
