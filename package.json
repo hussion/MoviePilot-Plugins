@@ -3,11 +3,12 @@
         "name": "站点自动签到",
         "description": "自动模拟登录、签到站点。",
         "labels": "站点",
-        "version": "2.1",
+        "version": "2.2",
         "icon": "signin.png",
         "author": "thsrite",
         "level": 2,
         "history": {
+            "v2.2": "适配馒头最新变化，需要升级至v1.8.5+版本且维护好Authorization",
             "v2.1": "增强API安全性",
             "v2.0": "站点签到时更新站点使用统计信息，需要主程序升级至v1.8.3+版本",
             "v1.9": "支持馒头新架构自动签到"
@@ -230,11 +231,12 @@
         "name": "IYUU自动辅种",
         "description": "基于IYUU官方Api实现自动辅种。",
         "labels": "做种,IYUU",
-        "version": "1.6",
+        "version": "1.7",
         "icon": "IYUU.png",
         "author": "jxxghp",
         "level": 2,
         "history": {
+            "v1.7": "适配馒头最新变化，需要升级至v1.8.5+版本且维护好Authorization",
             "v1.6": "增加不辅种小体积种子功能",
             "v1.5": "支持馒头新架构辅种"
         }
@@ -465,7 +467,7 @@
         "name": "清理硬链接",
         "description": "监控目录内文件被删除时，同步删除监控目录内所有和它硬链接的文件",
         "labels": "文件整理",
-        "version": "1.9",
+        "version": "2.0",
         "icon": "Ombi_A.png",
         "author": "DzAvril",
         "level": 1,
