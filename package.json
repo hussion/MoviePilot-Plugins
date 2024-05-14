@@ -164,10 +164,13 @@
         "name": "收藏洗版",
         "description": "Jellyfin/Emby/Plex点击收藏电影后，自动订阅洗版。",
         "labels": "订阅",
-        "version": "2.1",
+        "version": "2.2",
         "icon": "like.jpg",
         "author": "wlj",
-        "level": 2
+        "level": 2,
+        "history": {
+            "v2.2": "修复运行报错问题"
+        }
     },
     "MediaServerMsg": {
         "name": "媒体库服务器通知",
@@ -702,11 +705,12 @@
         "name": "清理QB无效做种",
         "description": "清理已经被站点删除的种子及对应源文件，仅支持QB",
         "labels": "Qbittorrent",
-        "version": "1.0",
+        "version": "1.1",
         "icon": "clean_a.png",
         "author": "DzAvril",
         "level": 1,
         "history": {
+            "v1.1": "更新使用说明，以防使用不当误删文件",
             "v1.0": "定时清理已经被站点删除的种子及对应源文件"
         }
     }
