@@ -59,7 +59,7 @@ class DirMonitor(_PluginBase):
     # 插件图标
     plugin_icon = "directory.png"
     # 插件版本
-    plugin_version = "2.0"
+    plugin_version = "2.1"
     # 插件作者
     plugin_author = "jxxghp"
     # 作者主页
@@ -83,10 +83,11 @@ class DirMonitor(_PluginBase):
     _onlyonce = False
     _cron = None
     _size = 0
+    _scrape = True
     # 模式 compatibility/fast
     _mode = "fast"
     # 转移方式
-    _transfer_type = settings.TRANSFER_TYPE
+    _transfer_type = "link"
     _monitor_dirs = ""
     _exclude_keywords = ""
     _interval: int = 10
@@ -119,6 +120,7 @@ class DirMonitor(_PluginBase):
             self._interval = config.get("interval") or 10
             self._cron = config.get("cron")
             self._size = config.get("size") or 0
+            self._scrape = config.get("scrape") or False
 
         # 停止现有任务
         self.stop_service()
@@ -235,7 +237,8 @@ class DirMonitor(_PluginBase):
             "exclude_keywords": self._exclude_keywords,
             "interval": self._interval,
             "cron": self._cron,
-            "size": self._size
+            "size": self._size,
+            "scrape": self._scrape
         })
 
     @eventmanager.register(EventType.PluginAction)
@@ -457,7 +460,7 @@ class DirMonitor(_PluginBase):
                 )
 
                 # 刮削单个文件
-                if settings.SCRAP_METADATA:
+                if self._scrape:
                     self.chain.scrape_metadata(path=transferinfo.target_path,
                                                mediainfo=mediainfo,
                                                transfer_type=transfer_type)
@@ -824,6 +827,22 @@ class DirMonitor(_PluginBase):
                                         }
                                     }
                                 ]
+                            },
+                            {
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12,
+                                    'md': 4
+                                },
+                                'content': [
+                                    {
+                                        'component': 'VSwitch',
+                                        'props': {
+                                            'model': 'scrape',
+                                            'label': '刮削元数据',
+                                        }
+                                    }
+                                ]
                             }
                         ]
                     },
@@ -945,12 +964,13 @@ class DirMonitor(_PluginBase):
             "notify": False,
             "onlyonce": False,
             "mode": "fast",
-            "transfer_type": settings.TRANSFER_TYPE,
+            "transfer_type": "link",
             "monitor_dirs": "",
             "exclude_keywords": "",
             "interval": 10,
             "cron": "",
-            "size": 0
+            "size": 0,
+            "scrape": True
         }
 
     def get_page(self) -> List[dict]:
