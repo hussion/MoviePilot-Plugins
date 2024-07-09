@@ -273,11 +273,12 @@
         "name": "IYUU自动辅种",
         "description": "基于IYUU官方Api实现自动辅种。",
         "labels": "做种,IYUU",
-        "version": "1.9",
+        "version": "1.9.2",
         "icon": "IYUU.png",
         "author": "jxxghp",
         "level": 2,
         "history": {
+            "v1.9.2": "适配馒头使用API下载种子",
             "v1.9.1": "支持自定义辅种的种子分类",
             "v1.9": "支持自定义辅种后标签，支持将站点名作为标签",
             "v1.8.2": "qBittorrent 支持跳过校验",
@@ -465,11 +466,12 @@
         "name": "配置中心",
         "description": "快速调整部分系统设定。",
         "labels": "系统设置",
-        "version": "2.5",
+        "version": "2.6",
         "icon": "setting.png",
         "author": "jxxghp",
         "level": 1,
         "history": {
+            "v2.6": "支持DOH相关配置项",
             "v2.5": "增加Github加速服务器设置项"
         }
     },
