@@ -283,11 +283,12 @@
         "name": "IYUU自动辅种",
         "description": "基于IYUU官方Api实现自动辅种。",
         "labels": "做种,IYUU",
-        "version": "1.9.3",
+        "version": "1.9.4",
         "icon": "IYUU.png",
         "author": "jxxghp",
         "level": 2,
         "history": {
+            "v1.9.4": "修复qbittorrent 添加种子并跳过检验后会标记为完成不会自动做种",
             "v1.9.3": "修复Monika因缺少rsskey，种子下载失败的问题",
             "v1.9.2": "适配馒头使用API下载种子",
             "v1.9.1": "支持自定义辅种的种子分类",
@@ -357,10 +358,13 @@
         "name": "下载器文件同步",
         "description": "同步下载器的文件信息到数据库，删除文件时联动删除下载任务。",
         "labels": "下载管理",
-        "version": "1.1",
+        "version": "1.1.1",
         "icon": "Youtube-dl_A.png",
         "author": "thsrite",
-        "level": 1
+        "level": 1,
+        "history": {
+            "v1.1.1": "修复时区问题导致的上次同步后8h内的种子不同步的问题"
+        }
     },
     "BrushFlow": {
         "name": "站点刷流",
