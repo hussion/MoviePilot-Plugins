@@ -162,5 +162,55 @@
             "v2.0": "兼容MoviePilot V2 版本",
             "v1.2": "增加不限速路径配置，以应对网盘直链播放的情况"
         }
+    },
+    "AutoClean": {
+        "name": "定时清理媒体库",
+        "description": "定时清理用户下载的种子、源文件、媒体库文件。",
+        "labels": "媒体库",
+        "version": "2.0",
+        "icon": "clean.png",
+        "author": "thsrite",
+        "level": 2,
+        "history": {
+            "v2.0": "兼容MoviePilot V2 版本"
+        }
+    },
+    "ConfigCenter": {
+        "name": "配置中心",
+        "description": "快速调整部分系统设定。",
+        "labels": "系统设置",
+        "version": "3.0",
+        "icon": "setting.png",
+        "author": "jxxghp",
+        "level": 1,
+        "history": {
+            "v3.0": "兼容MoviePilot V2 版本",
+            "v2.6": "支持DOH相关配置项",
+            "v2.5": "增加Github加速服务器设置项"
+        }
+    },
+    "TorrentRemover": {
+        "name": "自动删种",
+        "description": "自动删除下载器中的下载任务。",
+        "labels": "做种",
+        "version": "2.0",
+        "icon": "delete.jpg",
+        "author": "jxxghp",
+        "level": 2,
+        "history": {
+            "v2.0": "兼容MoviePilot V2 版本"
+        }
+    },
+    "IYUUAutoSeed": {
+        "name": "IYUU自动辅种",
+        "description": "基于IYUU官方Api实现自动辅种。",
+        "labels": "做种,IYUU",
+        "version": "2.0",
+        "icon": "IYUU.png",
+        "author": "jxxghp",
+        "level": 2,
+        "history": {
+            "v2.0": "兼容MoviePilot V2 版本"
+        }
     }
 }
