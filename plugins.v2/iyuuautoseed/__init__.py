@@ -33,7 +33,7 @@ class IYUUAutoSeed(_PluginBase):
     # 插件图标
     plugin_icon = "IYUU.png"
     # 插件版本
-    plugin_version = "2.2"
+    plugin_version = "2.4"
     # 插件作者
     plugin_author = "jxxghp"
     # 作者主页
@@ -643,6 +643,22 @@ class IYUUAutoSeed(_PluginBase):
                 self.check_recheck()
             else:
                 logger.info(f"没有需要辅种的种子")
+        # qb 中，辅种结束后，一起开始所有辅种后暂停的种子（排除了出错的种子），及时人工确认也是手动开始这部分种子
+        for service in self.service_infos.values():
+            downloader = service.name
+            downloader_obj = service.instance
+            # 只处理 qb
+            if service.type == "qbittorrent":
+                paused_torrents, _ = downloader_obj.get_torrents(status=["paused"])
+                # errored_torrents, _ = downloader_obj.get_torrents(status=["errored"])
+                pausedUP_torrent_hashs = []
+                for torrent in paused_torrents:
+                    if torrent.state in ['pausedUP', 'stoppedUP']:
+                        pausedUP_torrent_hashs.append(torrent.hash)
+                        logger.info(f"下载器 {downloader} 自动开始种子 {torrent.name}")
+                    else:
+                        logger.info(f"下载器 {downloader} 不自动开始种子 {torrent.name}, state={torrent.state}")
+                downloader_obj.start_torrents(ids=pausedUP_torrent_hashs)
         # 保存缓存
         self.__update_config()
         # 发送消息
@@ -1018,7 +1034,7 @@ class IYUUAutoSeed(_PluginBase):
         判断种子是否可以做种并处于暂停状态
         """
         try:
-            return torrent.get("state") == "pausedUP" if dl_type == "qbittorrent" \
+            return torrent.get("state") in ["pausedUP", "stoppedUP"] if dl_type == "qbittorrent" \
                 else (torrent.status.stopped and torrent.percent_done == 1)
         except Exception as e:
             print(str(e))
