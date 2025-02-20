@@ -260,7 +260,7 @@
         "name": "ChatGPT",
         "description": "消息交互支持与ChatGPT对话。",
         "labels": "消息通知,识别",
-        "version": "1.3",
+        "version": "1.3.1",
         "icon": "Chatgpt_A.png",
         "author": "jxxghp",
         "level": 1
@@ -776,6 +776,16 @@
         "labels": "消息通知",
         "version": "1.0",
         "icon": "Ntfy_A.png",
+        "author": "lethargicScribe",
+        "level": 1,
+        "v2": true
+    },
+    "GotifyMsg": {
+        "name": "gotify消息推送",
+        "description": "支持使用gotify发送消息通知。",
+        "labels": "消息通知",
+        "version": "1.1",
+        "icon": "https://raw.githubusercontent.com/gotify/logo/refs/heads/master/gotify-logo.png",
         "author": "lethargicScribe",
         "level": 1,
         "v2": true
