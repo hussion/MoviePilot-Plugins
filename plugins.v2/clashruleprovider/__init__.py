@@ -1,35 +1,34 @@
-import json
-import re
-import urllib
-from typing import Any, Optional, List, Dict, Tuple, Union
-import time
-from urllib.parse import urlparse
-import yaml
-import hashlib
-from datetime import datetime, timedelta
-import pytz
-import copy
-import math
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 import asyncio
-from fastapi import HTTPException, Request, status, Body, Response
-import websockets
-from sse_starlette.sse import EventSourceResponse
+import copy
+import hashlib
+import json
+import math
+import re
+import time
+import urllib
+from datetime import datetime, timedelta
+from typing import Any, Optional, List, Dict, Tuple, Union
+from urllib.parse import urlparse
 
+import pytz
+import websockets
+import yaml
 from app import schemas
 from app.core.config import settings
 from app.core.event import eventmanager, Event
-from app.schemas.types import EventType
 from app.log import logger
-from app.schemas.types import NotificationType
-from app.utils.ip import IpUtils
-from app.utils.http import RequestUtils, AsyncRequestUtils
 from app.plugins import _PluginBase
-from app.plugins.clashruleprovider.clashruleparser import ClashRuleParser, Converter
 from app.plugins.clashruleprovider.clashruleparser import Action, RuleType, ClashRule, MatchRule, LogicRule
+from app.plugins.clashruleprovider.clashruleparser import ClashRuleParser, Converter
 from app.plugins.clashruleprovider.clashruleparser import ProxyGroup, RuleProvider
+from app.schemas.types import EventType
+from app.schemas.types import NotificationType
+from app.utils.http import RequestUtils, AsyncRequestUtils
+from app.utils.ip import IpUtils
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from fastapi import HTTPException, Request, status, Body, Response
+from sse_starlette.sse import EventSourceResponse
 
 
 class ClashRuleProvider(_PluginBase):
@@ -40,7 +39,7 @@ class ClashRuleProvider(_PluginBase):
     # 插件图标
     plugin_icon = "Mihomo_Meta_A.png"
     # 插件版本
-    plugin_version = "1.3.2"
+    plugin_version = "1.3.3"
     # 插件作者
     plugin_author = "wumode"
     # 作者主页
@@ -72,8 +71,10 @@ class ClashRuleProvider(_PluginBase):
     _auto_update_subscriptions = True
     _ruleset_prefix: str = '📂<='
     _group_by_region: bool = False
+    _group_by_country: bool = False
     _refresh_delay: int = 5
     _discard_rules: bool = False
+    _discard_proxy_groups: bool = False
     _enable_acl4ssr: bool = False
     _dashboard_components: List[str] = []
     _clash_template_yaml: str = ''
@@ -123,15 +124,15 @@ class ClashRuleProvider(_PluginBase):
             self._notify = config.get("notify"),
             self._sub_links = config.get("sub_links") or []
             self._clash_dashboard_url = config.get("clash_dashboard_url") or ''
-            if self._clash_dashboard_url and self._clash_dashboard_url[-1] == '/':
-                self._clash_dashboard_url = self._clash_dashboard_url[:-1]
+            if self._clash_dashboard_url:
+                self._clash_dashboard_url = self._clash_dashboard_url.rstrip("/")
             if not (self._clash_dashboard_url.startswith('http://') or
                     self._clash_dashboard_url.startswith('https://')):
                 self._clash_dashboard_url = 'http://' + self._clash_dashboard_url
             self._clash_dashboard_secret = config.get("clash_dashboard_secret")
             self._movie_pilot_url = config.get("movie_pilot_url")
-            if self._movie_pilot_url and self._movie_pilot_url[-1] == '/':
-                self._movie_pilot_url = self._movie_pilot_url[:-1]
+            if self._movie_pilot_url:
+                self._movie_pilot_url = self._movie_pilot_url.rstrip("/")
             self._cron = config.get("cron_string") or '30 12 * * *'
             self._timeout = config.get("timeout")
             self._retry_times = config.get("retry_times") or 3
@@ -140,8 +141,10 @@ class ClashRuleProvider(_PluginBase):
             self._acl4ssr_prefix = config.get("acl4ssr_prefix", "🗂️=>")
             self._auto_update_subscriptions = config.get("auto_update_subscriptions")
             self._group_by_region = config.get("group_by_region")
+            self._group_by_country = config.get("group_by_country") or False
             self._refresh_delay = config.get("refresh_delay") or 5
             self._discard_rules = config.get("discard_rules") or False
+            self._discard_proxy_groups = config.get("discard_proxy_groups") or False
             self._enable_acl4ssr = config.get("enable_acl4ssr") or False
             self._dashboard_components = config.get("dashboard_components") or []
             self._clash_template_yaml = config.get("clash_template") or ''
@@ -171,12 +174,13 @@ class ClashRuleProvider(_PluginBase):
             # 清理不存在的 URL
             self._subscription_info = {url: self._subscription_info.get(url)
                                        for url in self._sub_links if self._subscription_info.get(url)}
-            self._clash_configs = {url: self._clash_configs[url] for url in self._sub_links if self._clash_configs.get(url)}
+            self._clash_configs = {url: self._clash_configs[url] for url in self._sub_links if
+                                   self._clash_configs.get(url)}
             self._scheduler = BackgroundScheduler(timezone=settings.TZ)
             self._scheduler.start()
             # 更新订阅
             self._scheduler.add_job(self.refresh_subscriptions, "date",
-                                        run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=2))
+                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=2))
             if self._hint_geo_dat:
                 self._scheduler.add_job(self.__refresh_geo_dat, "date",
                                         run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3))
@@ -188,7 +192,6 @@ class ClashRuleProvider(_PluginBase):
                                         run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=4))
             else:
                 self._acl4ssr_providers = {}
-
 
     def get_state(self) -> bool:
         return self._enabled
@@ -581,6 +584,7 @@ class ClashRuleProvider(_PluginBase):
                         break
             finally:
                 listener_task.cancel()  # 停止与 Clash 的连接
+
         return EventSourceResponse(event_generator())
 
     async def fetch_clash_data(self, endpoint: str) -> Dict:
@@ -602,14 +606,14 @@ class ClashRuleProvider(_PluginBase):
             return schemas.Response(success=True, message="missing params")
         clash_version_url = f"{params.get('clash_dashboard_url')}/version"
         ret = await AsyncRequestUtils(accept_type="application/json",
-                           headers={"authorization": f"Bearer {params.get('clash_dashboard_secret')}"}
-                           ).get(clash_version_url)
+                                      headers={"authorization": f"Bearer {params.get('clash_dashboard_secret')}"}
+                                      ).get(clash_version_url)
         if ret is None:
             return schemas.Response(success=False, message="无法连接到Clash")
         for sub_link in (params.get('sub_links') or []):
             ret = await AsyncRequestUtils(accept_type="text/html",
-                               proxies=settings.PROXY if self._proxy else None
-                               ).get(sub_link)
+                                          proxies=settings.PROXY if self._proxy else None
+                                          ).get(sub_link)
             if ret is None:
                 return schemas.Response(success=False, message=f"Unable to fetch {sub_link}")
         return schemas.Response(success=True, message="测试连接成功")
@@ -638,7 +642,6 @@ class ClashRuleProvider(_PluginBase):
                          "subscription_info": self._subscription_info,
                          "sub_url": f"{self._movie_pilot_url}/api/v1/plugin/ClashRuleProvider/config?"
                                     f"apikey={settings.API_TOKEN}"}}
-
 
     def get_clash_config(self, request: Request):
         logger.info(f"{request.client.host} 正在获取配置")
@@ -713,7 +716,7 @@ class ClashRuleProvider(_PluginBase):
             res = self.delete_rule_by_priority(params.get('priority'), self._ruleset_rule_parser)
             if res:
                 self.__add_notification_job(
-                    [f"{self._ruleset_prefix}{res.action.value if isinstance(res.action, Action) else res.action}",])
+                    [f"{self._ruleset_prefix}{res.action.value if isinstance(res.action, Action) else res.action}", ])
         else:
             self.delete_rule_by_priority(params.get('priority'), self._clash_rule_parser)
         return schemas.Response(success=True, message='')
@@ -780,7 +783,7 @@ class ClashRuleProvider(_PluginBase):
         if params.get('type') == 'ruleset':
             res = self.add_rule_by_priority(params.get('rule_data'), self._ruleset_rule_parser)
             if res:
-                self.__add_notification_job([f"{self._ruleset_prefix}{params.get('rule_data').get('action')}",])
+                self.__add_notification_job([f"{self._ruleset_prefix}{params.get('rule_data').get('action')}", ])
         else:
             res = self.add_rule_by_priority(params.get('rule_data'), self._clash_rule_parser)
         return schemas.Response(success=bool(res), message='')
@@ -817,6 +820,8 @@ class ClashRuleProvider(_PluginBase):
         for key, value in new_value.items():
             if key == 'name' or value is None:
                 continue
+            if key == 'payload' and params.get('type') != 'inline':
+                continue
             if value == '' or value is None:
                 continue
             item[key] = value
@@ -852,7 +857,7 @@ class ClashRuleProvider(_PluginBase):
             return schemas.Response(success=True, data={'proxy_groups': []})
         first_config = self._clash_configs.get(self._sub_links[0], {}) if self._sub_links else {}
         proxy_groups = []
-        sources = ('Manual', 'Template', urlparse(self._sub_links[0]).hostname if self._sub_links else '' ,'Region')
+        sources = ('Manual', 'Template', urlparse(self._sub_links[0]).hostname if self._sub_links else '', 'Region')
         groups = (self._proxy_groups, self._clash_template.get('proxy-groups', []),
                   first_config.get('proxy-groups', []), self.proxy_groups_by_region())
         for i, group in enumerate(groups):
@@ -1120,8 +1125,6 @@ class ClashRuleProvider(_PluginBase):
 
     def delete_rule_by_priority(self, priority: int, rule_parser: ClashRuleParser
                                 ) -> Optional[Union[ClashRule, LogicRule, MatchRule]]:
-        if not isinstance(priority, int):
-            return None
         res = rule_parser.remove_rule_at_priority(priority)
         self.__save_data()
         return res
@@ -1216,7 +1219,7 @@ class ClashRuleProvider(_PluginBase):
                     continue
                 tree = res.json()
                 yaml_files = [item["path"][:item["path"].rfind('.')] for item in tree["tree"] if
-                         item["type"] == "blob" and item['path'].endswith((".yaml", ".yml"))]
+                              item["type"] == "blob" and item['path'].endswith((".yaml", ".yml"))]
                 self._geo_rules[path["name"]] = yaml_files
 
     def refresh_subscriptions(self) -> Dict[str, bool]:
@@ -1264,6 +1267,8 @@ class ClashRuleProvider(_PluginBase):
             logger.info(f"已更新: {url}. 节点数量: {len(rs['proxies'])}")
             if rs.get('rules') is None:
                 rs['rules'] = []
+            if self._discard_proxy_groups:
+                rs['proxy-groups'] = []
             rs = self.__remove_nodes_by_keywords(rs)
         except Exception as e:
             logger.error(f"解析配置出错： {e}")
@@ -1291,7 +1296,7 @@ class ClashRuleProvider(_PluginBase):
                      ).put(url)
 
     def proxy_groups_by_region(self) -> List[Dict[str, Any]]:
-        return ClashRuleProvider.__group_by_region(self._countries, self.all_proxies())
+        return self.__group_by_region(self._countries, self.all_proxies())
 
     @staticmethod
     def __load_countries(file_path: str) -> List:
@@ -1302,40 +1307,71 @@ class ClashRuleProvider(_PluginBase):
             return []
         return countries
 
-    @staticmethod
-    def __group_by_region(countries: List, proxies) -> List[Dict[str, Any]]:
-        continents_nodes = {'Asia': [], 'Europe': [], 'SouthAmerica': [], 'NorthAmerica': [], 'Africa': [],
-                            'Oceania': [], 'AsiaExceptChina': []}
+    def __group_by_region(self, countries: List, proxies) -> List[Dict[str, Any]]:
+        continent_groups = {}
+        country_groups = {}
+        continent_map = {
+            '欧洲': 'Europe',
+            '亚洲': 'Asia',
+            '大洋洲': 'Oceania',
+            '非洲': 'Africa',
+            '北美洲': 'NorthAmerica',
+            '南美洲': 'SouthAmerica'
+        }
         proxy_groups = []
+        hk = next(filter(lambda c: c['abbr'] == 'HK', countries),
+                  {"abbr": "HK", "chinese": "中国香港特别行政区", "emoji": "🇭🇰"})
+        tw = next(filter(lambda c: c['abbr'] == 'TW', countries),
+                  {"abbr": "TW", "chinese": "中国台湾", "emoji": "🇹🇼"})
         for proxy_node in proxies:
-            continent = ClashRuleProvider.__continent_name_from_node(countries, proxy_node['name'])
-            if not continent:
+            country = ClashRuleProvider.__country_from_node(countries, proxy_node['name'])
+            if not country:
                 continue
-            continents_nodes[continent].append(proxy_node['name'])
-        for continent_nodes in continents_nodes:
-            if len(continents_nodes[continent_nodes]):
-                proxy_group = {'name': continent_nodes, 'type': 'select', 'proxies': continents_nodes[continent_nodes]}
+            if country.get("abbr") == "CN":
+                if any(key in proxy_node["name"] for key in ("🇭🇰", "HK", "香港")):
+                    country = hk
+                if any(key in proxy_node["name"] for key in ("🇹🇼", "TW", "台湾")):
+                    country = tw
+            continent = continent_map[country.get('continent')]
+            if self._group_by_region:
+                continent_groups.setdefault(continent, []).append(proxy_node['name'])
+            if self._group_by_country:
+                country_groups.setdefault(f"{country.get('emoji')} {country.get('chinese')}", []).append(
+                    proxy_node['name'])
+        for continent, nodes in continent_groups.items():
+            if len(nodes):
+                proxy_group = {'name': continent, 'type': 'select', 'proxies': nodes}
                 proxy_groups.append(proxy_group)
-        for continent_node in continents_nodes['Asia']:
-            if any(x in continent_node for x in ('中国', '香港', 'CN')):
+        excluded = ('中国', '香港', 'CN', 'HK', '🇨🇳', '🇭🇰')
+        for continent_node in continent_groups.get('Asia', []):
+            if any(x in continent_node for x in excluded):
                 continue
-            continents_nodes['AsiaExceptChina'].append(continent_node)
-        if continents_nodes['AsiaExceptChina']:
-            proxy_group = {'name': 'AsiaExceptChina', 'type': 'select', 'proxies': continents_nodes['AsiaExceptChina']}
+            continent_groups.setdefault('AsiaExceptChina', []).append(continent_node)
+        if continent_groups.get('AsiaExceptChina'):
+            proxy_group = {'name': 'AsiaExceptChina', 'type': 'select', 'proxies': continent_groups['AsiaExceptChina']}
             proxy_groups.append(proxy_group)
+        for country, nodes in country_groups.items():
+            if len(nodes):
+                proxy_group = {'name': country, 'type': 'select', 'proxies': nodes}
+                proxy_groups.append(proxy_group)
+        country_group = list(country_groups.keys())
+        if country_group:
+            proxy_groups.append({'name': '🏴‍☠️国家分组', 'type': 'select', 'proxies': country_group})
+
         return proxy_groups
 
     @staticmethod
-    def __continent_name_from_node(countries: List[Dict[str, str]], node_name: str) -> Optional[str]:
-        continents_names = {'欧洲': 'Europe',
-                            '亚洲': 'Asia',
-                            '大洋洲': 'Oceania',
-                            '非洲': 'Africa',
-                            '北美洲': 'NorthAmerica',
-                            '南美洲': 'SouthAmerica'}
+    def __country_from_node(countries: List[Dict[str, str]], node_name: str) -> Optional[Dict[str, str]]:
+        node_name_lower = node_name.lower()
         for country in countries:
-            if country['chinese'] in node_name or country['english'].lower() in node_name.lower():
-                return continents_names[country['continent']]
+            if country['emoji'] and country['emoji'] in node_name:
+                return country
+            elif (
+                    country['chinese'] in node_name
+                    or country['english'].lower() in node_name_lower
+            ):
+                return country
+
         return None
 
     def __add_notification_job(self, ruleset_names: List[str]):
@@ -1400,7 +1436,7 @@ class ClashRuleProvider(_PluginBase):
         """
         # 使用模板或第一个订阅
         first_config = self._clash_configs.get(self._sub_links[0], {}) if self._sub_links else {}
-        proxies =[]
+        proxies = []
         if not self._clash_template:
             clash_config = copy.deepcopy(first_config)
             clash_config['proxy-groups'] = []
@@ -1418,7 +1454,7 @@ class ClashRuleProvider(_PluginBase):
         clash_config['rule-providers'] = clash_config.get('rule-providers') or {}
         clash_config['rule-providers'].update(first_config.get('rule-providers', {}))
 
-        for proxy in self.all_proxies() :
+        for proxy in self.all_proxies():
             if any(p.get('name') == proxy.get('name', '') for p in proxies):
                 logger.warn(f"Proxy named {proxy.get('name')!r} already exists. Skipping...")
                 continue
@@ -1433,7 +1469,7 @@ class ClashRuleProvider(_PluginBase):
             clash_config['proxy-groups'] = ClashRuleProvider.extend_with_name_checking(clash_config['proxy-groups'],
                                                                                        proxy_groups)
         # 添加按大洲代理组
-        if self._group_by_region:
+        if self._group_by_region or self._group_by_country:
             groups_by_region = self.proxy_groups_by_region()
             if groups_by_region:
                 clash_config['proxy-groups'] = ClashRuleProvider.extend_with_name_checking(clash_config['proxy-groups'],
@@ -1457,11 +1493,11 @@ class ClashRuleProvider(_PluginBase):
                 sub_url = (f"{self._movie_pilot_url}/api/v1/plugin/ClashRuleProvider/ruleset?"
                            f"name={path_name}&apikey={settings.API_TOKEN}")
                 self._rule_provider[rule_provider_name] = {"behavior": "classical",
-                                                     "format": "yaml",
-                                                     "interval": 3600,
-                                                     "path": f"./CRP/{path_name}.yaml",
-                                                     "type": "http",
-                                                     "url": sub_url}
+                                                           "format": "yaml",
+                                                           "interval": 3600,
+                                                           "path": f"./CRP/{path_name}.yaml",
+                                                           "type": "http",
+                                                           "url": sub_url}
         clash_config['rule-providers'].update(self._rule_provider)
         # 添加规则
         for rule in self._clash_rule_parser.rules:
@@ -1523,7 +1559,7 @@ class ClashRuleProvider(_PluginBase):
         return v6
 
     @eventmanager.register(EventType.PluginAction)
-    def update_cloudflare_ips_handler(self, event:Event = None):
+    def update_cloudflare_ips_handler(self, event: Event = None):
         event_data = event.event_data
         if not event_data or event_data.get("action") != "update_cloudflare_ips":
             return
